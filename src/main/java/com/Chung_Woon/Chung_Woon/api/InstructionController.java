@@ -2,9 +2,11 @@ package com.Chung_Woon.Chung_Woon.api;
 
 import com.Chung_Woon.Chung_Woon.domain.instruction.InstructionParsingService;
 import com.Chung_Woon.Chung_Woon.global.common.ApiResponse;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -59,7 +61,13 @@ public class InstructionController {
 	}
 
 	public record CreateInstructionRequest(
-			@NotBlank String rawText,
+			@NotBlank
+			@JsonProperty("raw_text")
+			@Schema(name = "raw_text", description = "현장에서 입력한 자연어 지시 원문",
+					example = "오늘 14시부터 B01 구역은 공사로 폐쇄해")
+			String rawText,
+			@JsonProperty("author")
+			@Schema(description = "지시 작성자", example = "야드관리자A")
 			String author
 	) {
 	}
