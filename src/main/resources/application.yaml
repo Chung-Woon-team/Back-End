@@ -21,6 +21,10 @@ spring:
 server:
   port: ${PORT:8080}
 
+# 파이썬 AI 서비스(FastAPI). 내부 전용 - 외부에 노출하지 않는다.
+ai:
+  base-url: ${AI_BASE_URL:http://localhost:8000}
+
 management:
   endpoints:
     web:
