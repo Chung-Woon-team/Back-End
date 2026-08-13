@@ -41,6 +41,13 @@ public class ObservationSnapshot extends BaseTimeEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	/**
+	 * 사진 한 장(야드 전체)이 블록 4개 행으로 갈라져 저장되므로, 같은 업로드에서 나온 행을
+	 * 다시 묶어 부르기 위한 키. 확정(confirm) 단계가 이 값으로 그 배치를 다시 조회한다.
+	 */
+	@Column(nullable = false, length = 36)
+	private String batchId;
+
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "block_id", nullable = false)
 	private Block block;

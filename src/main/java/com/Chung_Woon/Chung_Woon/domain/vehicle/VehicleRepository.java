@@ -42,4 +42,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, String> {
 
 	/** 컷오프가 임박한 차량. 게이트 가까운 얕은 슬롯 우선 배정 대상. */
 	List<Vehicle> findByDepartureCutoffAtBeforeOrderByDepartureCutoffAtAsc(LocalDateTime before);
+
+	/** 지금 이 슬롯에 서 있는 차. 야드 점유 확정에서 "자리가 비었다"로 뒤집힐 때 뗄 대상을 찾는다. */
+	Optional<Vehicle> findByCurrentSlot_SlotId(String slotId);
 }
