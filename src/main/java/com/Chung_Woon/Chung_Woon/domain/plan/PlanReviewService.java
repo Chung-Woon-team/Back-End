@@ -1,5 +1,7 @@
 package com.Chung_Woon.Chung_Woon.domain.plan;
 
+import com.Chung_Woon.Chung_Woon.domain.vehicle.Vehicle;
+import com.Chung_Woon.Chung_Woon.domain.yard.Slot;
 import com.Chung_Woon.Chung_Woon.global.error.BusinessException;
 import com.Chung_Woon.Chung_Woon.global.error.ErrorCode;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
@@ -47,10 +49,19 @@ public class PlanReviewService {
 		return PlanDetail.from(revision, placements, moves);
 	}
 
+	/**
+	 * 승인만으로 끝나지 않는다 — 이 판이 "지금 야드의 실제 상태"가 되도록
+	 * {@link Vehicle#currentSlot}/{@link Slot#status} 를 같이 갱신한다.
+	 *
+	 * <p>{@link Placement} 는 판마다 쌓이는 이력이라 그 자체로는 실시간 상태가 아니다. DRAFT 판이
+	 * 여러 개 있을 수 있는데 그것들 때문에 실제 상태가 흔들리면 안 되므로, 이 반영은
+	 * <b>승인 시점에만</b> 한다(장표 원칙 "승인 전에는 반영 안 됨"과 같은 이유).
+	 */
 	@Transactional
 	public PlanSummary approve(String planVersion, String reviewer) {
 		PlanRevision revision = getOrThrow(planVersion);
 		revision.approve(reviewer);
+		applyToRealYardState(planVersion);
 		return PlanSummary.from(revision);
 	}
 
@@ -59,6 +70,21 @@ public class PlanReviewService {
 		PlanRevision revision = getOrThrow(planVersion);
 		revision.reject(reviewer);
 		return PlanSummary.from(revision);
+	}
+
+	/** 차가 옮겨간 경우 옛 자리부터 비워야 한다 — 안 그러면 옛 슬롯이 영원히 OCCUPIED 로 남는다. */
+	private void applyToRealYardState(String planVersion) {
+		for (Placement placement : placementRepository.findAllByPlanVersion(planVersion)) {
+			Vehicle vehicle = placement.getVehicle();
+			Slot newSlot = placement.getSlot();
+			Slot oldSlot = vehicle.getCurrentSlot();
+
+			if (oldSlot != null && !oldSlot.getSlotId().equals(newSlot.getSlotId())) {
+				oldSlot.markEmpty();
+			}
+			vehicle.parkAt(newSlot);
+			newSlot.markOccupied();
+		}
 	}
 
 	private PlanRevision getOrThrow(String planVersion) {
