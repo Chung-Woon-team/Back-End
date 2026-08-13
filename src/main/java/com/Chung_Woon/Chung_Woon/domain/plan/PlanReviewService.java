@@ -72,9 +72,14 @@ public class PlanReviewService {
 		return PlanSummary.from(revision);
 	}
 
-	/** 차가 옮겨간 경우 옛 자리부터 비워야 한다 — 안 그러면 옛 슬롯이 영원히 OCCUPIED 로 남는다. */
+	/**
+	 * 모든 옛 자리를 먼저 비운 뒤 새 배치를 채운다. 차량 A/B가 자리를 맞바꾸는 계획을 한 대씩
+	 * 처리하면, A가 새로 채운 B의 옛 슬롯을 B 처리 시 다시 EMPTY로 만드는 순서 오류가 발생한다.
+	 */
 	private void applyToRealYardState(String planVersion) {
-		for (Placement placement : placementRepository.findAllByPlanVersion(planVersion)) {
+		List<Placement> placements = placementRepository.findAllByPlanVersion(planVersion);
+
+		for (Placement placement : placements) {
 			Vehicle vehicle = placement.getVehicle();
 			Slot newSlot = placement.getSlot();
 			Slot oldSlot = vehicle.getCurrentSlot();
@@ -82,6 +87,11 @@ public class PlanReviewService {
 			if (oldSlot != null && !oldSlot.getSlotId().equals(newSlot.getSlotId())) {
 				oldSlot.markEmpty();
 			}
+		}
+
+		for (Placement placement : placements) {
+			Vehicle vehicle = placement.getVehicle();
+			Slot newSlot = placement.getSlot();
 			vehicle.parkAt(newSlot);
 			newSlot.markOccupied();
 		}

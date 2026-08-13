@@ -81,6 +81,30 @@ class PlanReviewServiceTest {
 	}
 
 	@Test
+	void approveKeepsBothSlotsOccupiedWhenVehiclesSwapSlots() {
+		PlanRevision revision = PlanRevision.builder().planVersion("B0-r3").status(PlanStatus.DRAFT).build();
+		when(planRevisionRepository.findByPlanVersion("B0-r3")).thenReturn(Optional.of(revision));
+
+		Block block = Block.builder().blockId("B01").closed(false).build();
+		Slot slotA = Slot.builder().slotId("B01-R04-C04").block(block).status(SlotStatus.OCCUPIED).build();
+		Slot slotB = Slot.builder().slotId("B01-R04-C05").block(block).status(SlotStatus.OCCUPIED).build();
+		Vehicle vehicleA = Vehicle.builder().vehicleId("V-0001").status(VehicleStatus.IN_YARD)
+				.currentSlot(slotA).build();
+		Vehicle vehicleB = Vehicle.builder().vehicleId("V-0002").status(VehicleStatus.IN_YARD)
+				.currentSlot(slotB).build();
+		Placement placementA = Placement.builder().planRevision(revision).vehicle(vehicleA).slot(slotB).build();
+		Placement placementB = Placement.builder().planRevision(revision).vehicle(vehicleB).slot(slotA).build();
+		when(placementRepository.findAllByPlanVersion("B0-r3")).thenReturn(List.of(placementA, placementB));
+
+		service.approve("B0-r3", "야드관리자A");
+
+		assertThat(vehicleA.getCurrentSlot()).isEqualTo(slotB);
+		assertThat(vehicleB.getCurrentSlot()).isEqualTo(slotA);
+		assertThat(slotA.getStatus()).isEqualTo(SlotStatus.OCCUPIED);
+		assertThat(slotB.getStatus()).isEqualTo(SlotStatus.OCCUPIED);
+	}
+
+	@Test
 	void rejectTransitionsStatus() {
 		PlanRevision revision = PlanRevision.builder().planVersion("B0-r1").status(PlanStatus.DRAFT).build();
 		when(planRevisionRepository.findByPlanVersion("B0-r1")).thenReturn(Optional.of(revision));
