@@ -6,9 +6,11 @@ import com.Chung_Woon.Chung_Woon.domain.vehicle.Vehicle;
 import com.Chung_Woon.Chung_Woon.domain.vehicle.VehicleRepository;
 import com.Chung_Woon.Chung_Woon.global.error.BusinessException;
 import com.Chung_Woon.Chung_Woon.global.error.ErrorCode;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -34,8 +36,14 @@ public class BillOfLadingExpansionService {
 	private final AiClient aiClient;
 	private final BillOfLadingRepository billOfLadingRepository;
 	private final VehicleRepository vehicleRepository;
+	private final TransactionTemplate transactionTemplate;
 
-	@Transactional
+	/**
+	 * AI 호출은 트랜잭션 <b>밖</b>이다. 이미지 추출은 최대 60초까지 걸리는데(AiClientConfig 의 read timeout),
+	 * 트랜잭션 안에서 부르면 그동안 DB 커넥션을 잡고 있는다. prod 풀 크기가 5 라 선하증권 5장을 동시에
+	 * 올리면 앱 전체가 커넥션을 못 얻는다 — "파이썬이 죽어 있어도 조회 API 는 살아 있어야 한다"
+	 * (API_CONTRACT.md)를 정면으로 깬다. 그래서 저장만 트랜잭션으로 감싼다.
+	 */
 	public Result expand(MultipartFile blImage) {
 		BillOfLadingExtractionResponse extraction = aiClient.extractBillOfLading(blImage);
 
@@ -43,6 +51,10 @@ public class BillOfLadingExpansionService {
 			throw new BusinessException(ErrorCode.AI_RESPONSE_INVALID, "unit_count 가 비어있거나 0 이하입니다.");
 		}
 
+		return transactionTemplate.execute(status -> persist(extraction));
+	}
+
+	private Result persist(BillOfLadingExtractionResponse extraction) {
 		BillOfLading billOfLading = toBillOfLading(extraction);
 		billOfLadingRepository.save(billOfLading);
 
@@ -89,8 +101,10 @@ public class BillOfLadingExpansionService {
 		Set<Integer> towUnitNumbers = e.towUnitNumbers() == null ? Set.of() : new HashSet<>(e.towUnitNumbers());
 		List<BillOfLadingExtractionResponse.CargoLine> flatCargoLines = flattenCargoLines(e.cargoLines(), count);
 
-		// 전역 유일해야 하는 4자리 ID(V-0001..V-9999) 라 기존 대수 다음부터 이어 붙인다.
-		long startingOffset = vehicleRepository.count();
+		// 전역 유일해야 하는 4자리 ID(V-0001..V-9999) 라 **지금까지 발급된 최대 번호** 다음부터 이어 붙인다.
+		// count() 는 쓰면 안 된다 — 삭제가 한 번이라도 있으면 이미 쓴 번호를 다시 내주고,
+		// PK 가 수동 할당이라 saveAll 이 merge(UPSERT)로 돌아 기존 차량 행을 예외 없이 덮어쓴다.
+		long startingOffset = nextVehicleNumber() - 1;
 
 		List<Vehicle> vehicles = new ArrayList<>(count);
 		for (int i = 0; i < count; i++) {
@@ -112,6 +126,13 @@ public class BillOfLadingExpansionService {
 					.build());
 		}
 		return vehicles;
+	}
+
+	/** 다음에 발급할 차량 번호. 저장된 것이 없으면 1 이다. */
+	private long nextVehicleNumber() {
+		return vehicleRepository.findMaxVehicleId()
+				.map(id -> Long.parseLong(id.substring(id.indexOf('-') + 1)) + 1)
+				.orElse(1L);
 	}
 
 	/**
@@ -195,6 +216,11 @@ public class BillOfLadingExpansionService {
 		return list;
 	}
 
+	/**
+	 * 공개 API 응답이라 snake_case 로 나가야 한다(API_CONTRACT.md 규칙 1, FRONTEND_CONTRACT.md 규칙 2).
+	 * 전역 Jackson 설정이 LOWER_CAMEL_CASE 라 이 애노테이션이 없으면 프론트가 읽는 필드가 전부 undefined 다.
+	 */
+	@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 	public record Result(String blNumber, int vehicleCount, List<String> vehicleIds) {
 	}
 }

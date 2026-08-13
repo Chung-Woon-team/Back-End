@@ -17,8 +17,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class BillOfLadingExpansionServiceTest {
 
+	// 여기서 검증하는 건 전부 순수 로직이라 협력 객체가 필요 없다. 마지막 인자는 TransactionTemplate.
 	private final BillOfLadingExpansionService service =
-			new BillOfLadingExpansionService(null, null, null);
+			new BillOfLadingExpansionService(null, null, null, null);
 
 	@Test
 	void expandsVinsByIncrementingTheTrailingDigits() {
