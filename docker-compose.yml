@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chungwoon-postgres
+    ports:
+      # 호스트 5432 는 다른 프로젝트(lightrip-db)가 쓰고 있어서 5433 으로 뺐다.
+      # 컨테이너 안은 그대로 5432 다.
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: chungwoon
+      POSTGRES_USER: chungwoon
+      POSTGRES_PASSWORD: chungwoon
+      TZ: Asia/Seoul
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chungwoon -d chungwoon"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:

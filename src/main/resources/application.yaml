@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: Chung-Woon
+  profiles:
+    # 아무 설정 없이 실행하면 local(H2) 로 뜬다.
+    default: local
+  jackson:
+    property-naming-strategy: LOWER_CAMEL_CASE
+    default-property-inclusion: non_null
+    jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

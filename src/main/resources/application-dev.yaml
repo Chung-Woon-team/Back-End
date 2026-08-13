@@ -1,0 +1,16 @@
+# 로컬 Postgres(docker compose up -d) 붙일 때 쓰는 프로필.
+# 배포 환경과 같은 DB 엔진이라, 배포 전에 한 번은 이걸로 돌려보는 게 안전하다.
+spring:
+  datasource:
+    # 포트 5433 - 호스트 5432 는 다른 프로젝트가 점유 중이라 docker-compose 에서 옮겼다.
+    url: jdbc:postgresql://localhost:5433/chungwoon
+    username: chungwoon
+    password: chungwoon
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+logging:
+  level:
+    org.hibernate.orm.jdbc.bind: trace
