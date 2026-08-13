@@ -58,6 +58,19 @@ public class AiClientConfig {
 				.findAndRegisterModules();
 	}
 
+	/**
+	 * 끝 슬래시를 떼어낸다. Cloud Run 콘솔에서 URL 을 복사하면 {@code https://host/} 로 붙는데,
+	 * 그대로 baseUrl 로 쓰면 {@code /internal/extract/bl} 을 이어 붙일 때 {@code //internal/...} 이
+	 * 될 수 있다. 로컬에서는 안 터지고 배포에서만 404 가 나는 종류라 여기서 미리 정리한다.
+	 */
+	static String normalizeBaseUrl(String baseUrl) {
+		String trimmed = baseUrl.strip();
+		while (trimmed.endsWith("/")) {
+			trimmed = trimmed.substring(0, trimmed.length() - 1);
+		}
+		return trimmed;
+	}
+
 	@Bean
 	public RestClient aiRestClient(
 			@Value("${ai.base-url}") String aiBaseUrl,
@@ -67,7 +80,7 @@ public class AiClientConfig {
 		requestFactory.setReadTimeout((int) Duration.ofSeconds(60).toMillis());
 
 		return RestClient.builder()
-				.baseUrl(aiBaseUrl)
+				.baseUrl(normalizeBaseUrl(aiBaseUrl))
 				.requestFactory(requestFactory)
 				.messageConverters(converters -> {
 					converters.removeIf(c -> c instanceof MappingJackson2HttpMessageConverter

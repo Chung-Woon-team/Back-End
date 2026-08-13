@@ -20,6 +20,12 @@ spring:
 
 server:
   port: ${PORT:8080}
+  # Cloud Run 이 TLS 를 끝내고 컨테이너에는 평문 HTTP 로 넘긴다. 이 설정이 없으면 스프링이
+  # 요청을 http 로 인식해서, springdoc 이 만드는 서버 URL 도 http:// 가 된다.
+  # 그러면 https 로 열린 Swagger 화면에서 http 로 요청이 나가 브라우저가 혼합 콘텐츠로 막고,
+  # Swagger 는 그걸 "Failed to fetch / CORS" 로 뭉뚱그려 보여준다(CORS 설정은 멀쩡한데도).
+  # X-Forwarded-* 는 Cloud Run 이 덮어쓰므로 신뢰해도 된다.
+  forward-headers-strategy: framework
 
 # 파이썬 AI 서비스(FastAPI). 내부 전용 - 외부에 노출하지 않는다.
 ai:
