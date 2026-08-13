@@ -58,6 +58,14 @@ public class Instruction extends BaseTimeEntity {
 	@Column(columnDefinition = "text")
 	private String clarificationJson;
 
+	/**
+	 * 파이썬 LangGraph 의 승인 대기 스레드 ID. 그래프가 아직 없어서 지금은 자리만 잡아둔 값이
+	 * 들어온다 — {@code /internal/resume} 이 구현되면 이 값으로 승인 결과를 되돌려 보낸다
+	 * (docs/API_CONTRACT.md "thread_id — 승인 흐름의 핵심").
+	 */
+	@Column(length = 40)
+	private String threadId;
+
 	@OneToMany(mappedBy = "instruction", cascade = CascadeType.ALL, orphanRemoval = true)
 	@Builder.Default
 	private List<PlanConstraint> constraints = new ArrayList<>();
@@ -65,5 +73,12 @@ public class Instruction extends BaseTimeEntity {
 	public void addConstraint(PlanConstraint constraint) {
 		this.constraints.add(constraint);
 		constraint.linkTo(this);
+	}
+
+	/** AI 파싱 결과를 받은 뒤 원문 지시에 되묻기 상태를 기록한다. */
+	public void applyParseResult(String threadId, String unresolvedJson, boolean requiresConfirmation) {
+		this.threadId = threadId;
+		this.unresolvedJson = unresolvedJson;
+		this.requiresConfirmation = requiresConfirmation;
 	}
 }
