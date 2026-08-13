@@ -1,5 +1,9 @@
 package com.Chung_Woon.Chung_Woon.api;
 
+import com.Chung_Woon.Chung_Woon.api.dto.PlanBriefingResponse;
+import com.Chung_Woon.Chung_Woon.api.dto.PlanKpiResponse;
+import com.Chung_Woon.Chung_Woon.domain.plan.PlanBriefingService;
+import com.Chung_Woon.Chung_Woon.domain.plan.PlanKpiService;
 import com.Chung_Woon.Chung_Woon.domain.plan.PlanReviewService;
 import com.Chung_Woon.Chung_Woon.domain.plan.ReplanExecutionService;
 import com.Chung_Woon.Chung_Woon.global.common.ApiResponse;
@@ -25,6 +29,8 @@ public class PlanController {
 
 	private final ReplanExecutionService replanExecutionService;
 	private final PlanReviewService planReviewService;
+	private final PlanKpiService planKpiService;
+	private final PlanBriefingService planBriefingService;
 
 	@Operation(summary = "재배치 계산",
 			description = """
@@ -53,10 +59,59 @@ public class PlanController {
 
 	@Operation(summary = "판 상세",
 			description = "배치 결과(placements) · 작업지시(moves) · KPI 를 함께 준다. "
-					+ "kpi_before 가 있으면 이전 판과 비교해 개선폭을 보여줄 수 있다.")
+					+ "전후 비교(지수·증감문구)는 `GET /{planVersion}/kpi` 를 쓴다.")
 	@GetMapping("/{planVersion}")
 	public ApiResponse<PlanReviewService.PlanDetail> get(@PathVariable String planVersion) {
 		return ApiResponse.ok(planReviewService.get(planVersion));
+	}
+
+	@Operation(summary = "판 KPI 전후 비교",
+			description = """
+					한 판(revision)의 KPI 6개를 **이전 판과 대조해서** 지수·증감문구까지 완성해 준다.
+					장표 6·9쪽 막대그래프가 `metrics[].index_before` / `index_after` 다.
+
+					- `planVersion` 자리에 **`latest`** 를 넣으면 가장 최근 승인 판(없으면 가장 최근 판)을 쓴다
+					- **비교할 이전 판이 없으면** `comparable: false` 이고 `before`·`index_*`·`delta_*` **키가 통째로 빠진다**
+					  (값이 `null` 이 아니라 키가 없다 — 전역 `non_null` 설정)
+					- 이 API 는 **파이썬을 호출하지 않는다.** AI 서비스가 죽어 있어도 200 이다
+					- 서버가 계산하지 않는다: KPI 6개 수치는 재배치 계산 시점에 저장된 값을 그대로 읽는다
+					""")
+	@GetMapping("/{planVersion}/kpi")
+	public ApiResponse<PlanKpiResponse> kpi(@PathVariable String planVersion) {
+		return ApiResponse.ok(planKpiService.load(planVersion));
+	}
+
+	@Operation(summary = "브리핑 조회",
+			description = """
+					저장된 브리핑 문장과 확인 항목을 읽는다. **DB 만 읽으므로 파이썬이 죽어 있어도 200** 이다.
+
+					- `planVersion` 자리에 **`latest`** 를 넣을 수 있다
+					- 아직 생성 전이어도 **404 가 아니라 200** 이다 — `state` 가 `NOT_GENERATED` 이고
+					  `briefing`·`source`·`generated_at` **키가 통째로 빠진다**. 이때 프론트는
+					  "브리핑 생성" 버튼을 띄우고 `POST` 를 건다
+					- `briefing` 은 `\\n` 로 줄바꿈된 통짜 문자열이다(`white-space: pre-line` 로 출력)
+					- "확인이 필요한 지점"은 문장에 섞지 않고 `confirmations` 로 따로 준다
+					""")
+	@GetMapping("/{planVersion}/briefing")
+	public ApiResponse<PlanBriefingResponse> briefing(@PathVariable String planVersion) {
+		return ApiResponse.ok(planBriefingService.load(planVersion));
+	}
+
+	@Operation(summary = "브리핑 생성",
+			description = """
+					저장된 KPI 와 이동 목록을 파이썬 `/internal/brief` 에 넘겨 담당자용 브리핑 문장을
+					만들고 **저장한 뒤** 돌려준다. 요청 바디는 없다.
+
+					- **호출할 때마다 다시 만들어 덮어쓴다**(멱등하지 않음)
+					- **숫자는 전부 저장된 KPI 에서만 나온다.** LLM 은 숫자를 만들지 않는다
+					- Gemini 키가 없어도 200 이다 — 이때 `source` 가 `FALLBACK` 이다
+					- **파이썬이 떠 있어야 한다.** 죽어 있으면 503 `AI001` (조회 API 인 `GET .../briefing` 은 파이썬 없이도 200)
+					- KPI 6개 중 하나라도 없는 판은 400 `C001` — 브리핑을 만들 재료가 없다
+					- 값이 없으면 키가 통째로 빠진다(전역 `non_null`)
+					""")
+	@PostMapping("/{planVersion}/briefing")
+	public ApiResponse<PlanBriefingResponse> generateBriefing(@PathVariable String planVersion) {
+		return ApiResponse.ok(planBriefingService.generate(planVersion));
 	}
 
 	@Operation(summary = "판 승인",

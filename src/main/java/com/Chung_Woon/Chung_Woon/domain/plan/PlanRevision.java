@@ -105,4 +105,13 @@ public class PlanRevision extends BaseTimeEntity {
 	public void attachBriefing(String briefing) {
 		this.briefing = briefing;
 	}
+
+	/**
+	 * 브리핑과 함께 남기는 메타 스냅샷(JSON) — {@code generated_at} · {@code source} ·
+	 * {@code confirmations}. 조회 시점에 confirmations 를 <b>다시 계산하지 않으려고</b> 통째로 박아둔다:
+	 * 생성 경로와 조회 경로가 각각 계산하면 같은 판인데 두 응답이 어긋날 수 있다.
+	 */
+	public void attachBriefingMeta(String consistencyIssuesJson) {
+		this.consistencyIssuesJson = consistencyIssuesJson;
+	}
 }

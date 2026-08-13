@@ -1,6 +1,8 @@
 package com.Chung_Woon.Chung_Woon.ai;
 
 import com.Chung_Woon.Chung_Woon.ai.dto.BillOfLadingExtractionResponse;
+import com.Chung_Woon.Chung_Woon.ai.dto.BriefRequest;
+import com.Chung_Woon.Chung_Woon.ai.dto.BriefResponse;
 import com.Chung_Woon.Chung_Woon.ai.dto.GridObservationResponse;
 import com.Chung_Woon.Chung_Woon.ai.dto.ParseInstructionRequest;
 import com.Chung_Woon.Chung_Woon.ai.dto.ParseInstructionResponse;
@@ -175,6 +177,32 @@ public class AiClient {
 		} catch (RestClientException e) {
 			log.warn("AI 서비스 호출 실패 (/internal/replan): {}", e.getMessage());
 			throw new BusinessException(ErrorCode.AI_UNAVAILABLE, "재배치 서비스를 호출하지 못했습니다.");
+		}
+	}
+
+	/**
+	 * 저장된 KPI + 이동 목록 → 담당자용 브리핑 문장. <b>숫자는 요청에 실어 보낸 KPI 에서만 나온다</b> —
+	 * LLM 은 숫자가 없는 첫 문장과 부연 한 줄만 만든다(AI활용방안 5절 "AI가 수치를 생성하지 않는다").
+	 *
+	 * <p>파이썬이 아직 이 경로를 구현하지 않았으면 501 을 준다. 501 도 5xx 라 여기서
+	 * {@link RestClientException} 으로 잡혀 {@code AI001}(503) 로 나가는데, {@code OpenApiConfig} 가
+	 * {@code AI001} 을 "파이썬 다운·미구현·인증거부"로 이미 문서화했으므로 <b>의도된 동작</b>이다.
+	 *
+	 * @throws BusinessException {@link ErrorCode#AI_UNAVAILABLE} 파이썬 호출 자체가 실패했을 때.
+	 *                            브리핑 <b>조회</b>({@code GET .../briefing})는 DB 만 읽으므로
+	 *                            파이썬이 죽어도 계속 200 이다.
+	 */
+	public BriefResponse brief(BriefRequest request) {
+		try {
+			return aiRestClient.post()
+					.uri("/internal/brief")
+					.contentType(MediaType.APPLICATION_JSON)
+					.body(request)
+					.retrieve()
+					.body(BriefResponse.class);
+		} catch (RestClientException e) {
+			log.warn("AI 서비스 호출 실패 (/internal/brief): {}", e.getMessage());
+			throw new BusinessException(ErrorCode.AI_UNAVAILABLE, "브리핑 서비스를 호출하지 못했습니다.");
 		}
 	}
 }
