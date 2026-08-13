@@ -100,7 +100,7 @@ public class YardSeedService {
 
 		for (YardSeedRequest.BlockOccupancy entry : request.blocksOrEmpty()) {
 			Block block = block(entry.blockId());
-			int capacity = block.getLaneCount() * block.getGridSize();
+			int capacity = block.getBlockRows() * block.getBlockCols();
 			if (entry.occupied() < 0 || entry.occupied() > capacity) {
 				throw new BusinessException(ErrorCode.INVALID_INPUT,
 						"%s 의 occupied 는 0 ~ %d 여야 합니다. 받은 값: %d"

@@ -15,13 +15,13 @@ public enum BlockLayout {
 	B01("EV-A", YardGrid.FIRST_BLOCK_ORIGIN, YardGrid.FIRST_BLOCK_ORIGIN),
 
 	/** 우상 */
-	B02("GEN-B", YardGrid.FIRST_BLOCK_ORIGIN, YardGrid.SECOND_BLOCK_ORIGIN),
+	B02("GEN-B", YardGrid.FIRST_BLOCK_ORIGIN, YardGrid.SECOND_BLOCK_ORIGIN_COL),
 
 	/** 좌하 */
-	B03("QC-HOLD", YardGrid.SECOND_BLOCK_ORIGIN, YardGrid.FIRST_BLOCK_ORIGIN),
+	B03("QC-HOLD", YardGrid.SECOND_BLOCK_ORIGIN_ROW, YardGrid.FIRST_BLOCK_ORIGIN),
 
 	/** 우하 */
-	B04("HVY-D", YardGrid.SECOND_BLOCK_ORIGIN, YardGrid.SECOND_BLOCK_ORIGIN);
+	B04("HVY-D", YardGrid.SECOND_BLOCK_ORIGIN_ROW, YardGrid.SECOND_BLOCK_ORIGIN_COL);
 
 	private final String zoneCode;
 	private final int originRow;
@@ -53,18 +53,18 @@ public enum BlockLayout {
 	}
 
 	public int lastRow() {
-		return originRow + YardGrid.BLOCK_SIZE - 1;
+		return originRow + YardGrid.BLOCK_ROWS - 1;
 	}
 
 	public int lastCol() {
-		return originCol + YardGrid.BLOCK_SIZE - 1;
+		return originCol + YardGrid.BLOCK_COLS - 1;
 	}
 
 	public boolean contains(int row, int col) {
 		return row >= originRow && row <= lastRow() && col >= originCol && col <= lastCol();
 	}
 
-	/** 레인 = 블록 안의 세로 열. 0 ~ 21. */
+	/** 레인 = 블록 안의 세로 열. 0 ~ 16. */
 	public int lane(int col) {
 		requireContainsCol(col);
 		return col - originCol;
@@ -77,13 +77,13 @@ public enum BlockLayout {
 	}
 
 	/**
-	 * 진입 도로에서 몇 번째 자리인지. 0 ~ 10 이고, 0 이 도로에 바로 붙은 칸이다.
+	 * 진입 도로에서 몇 번째 자리인지. 0 ~ 2 이고, 0 이 도로에 바로 붙은 칸이다.
 	 * 재취급 Proxy 는 이 값을 쓴다 — depth 5 짜리를 빼려면 앞의 5대를 옮겨야 한다.
 	 */
 	public int depth(int row) {
 		requireContainsRow(row);
 		int offset = row - originRow;
-		return offset < YardGrid.DEPTH_PER_LANE ? offset : (YardGrid.BLOCK_SIZE - 1 - offset);
+		return offset < YardGrid.DEPTH_PER_LANE ? offset : (YardGrid.BLOCK_ROWS - 1 - offset);
 	}
 
 	private void requireContainsRow(int row) {

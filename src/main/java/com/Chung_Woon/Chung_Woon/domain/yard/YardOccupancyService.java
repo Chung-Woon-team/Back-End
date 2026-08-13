@@ -29,7 +29,8 @@ public class YardOccupancyService {
 	public YardOccupancyResponse snapshot() {
 		return new YardOccupancyResponse(
 				new YardOccupancyResponse.Grid(
-						YardGrid.SIZE, YardGrid.ROAD_WIDTH, YardGrid.BLOCK_SIZE, YardGrid.SLOT_COUNT),
+						YardGrid.ROW_COUNT, YardGrid.COL_COUNT, YardGrid.ROAD_WIDTH,
+						YardGrid.BLOCK_ROWS, YardGrid.BLOCK_COLS, YardGrid.SLOT_COUNT),
 				blocks(),
 				parkedVehicles(),
 				LocalDateTime.now());
@@ -43,7 +44,8 @@ public class YardOccupancyService {
 						zoneIdOf(b.getBlockId()),
 						b.getOriginRow(),
 						b.getOriginCol(),
-						b.getGridSize(),
+						b.getBlockRows(),
+						b.getBlockCols(),
 						b.isClosed(),
 						b.getClosureReason()))
 				.toList();

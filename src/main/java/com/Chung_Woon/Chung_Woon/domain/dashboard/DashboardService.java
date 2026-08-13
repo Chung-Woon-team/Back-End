@@ -171,7 +171,7 @@ public class DashboardService {
 		List<DashboardResponse.BlockStatus> result = new ArrayList<>(blocks.size());
 		for (Block block : blocks.stream().sorted(Comparator.comparing(Block::getBlockId)).toList()) {
 			long occupied = occupiedByBlock.getOrDefault(block.getBlockId(), 0L);
-			long capacity = (long) block.getLaneCount() * block.getGridSize();
+			long capacity = (long) block.getBlockRows() * block.getBlockCols();
 			long movingIn = movesByBlock.getOrDefault(block.getBlockId(), 0L);
 
 			String status;

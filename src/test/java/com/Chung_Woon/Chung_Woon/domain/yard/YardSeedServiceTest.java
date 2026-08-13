@@ -82,10 +82,10 @@ class YardSeedServiceTest {
 	}
 
 	@Test
-	@DisplayName("블록 용량(484)을 넘기면 거부한다")
+	@DisplayName("블록 용량(85)을 넘기면 거부한다")
 	void rejectsOverCapacity() {
 		assertThatThrownBy(() -> yardSeedService.seed(request(
-				List.of(new YardSeedRequest.BlockOccupancy("B01", 485, null)), List.of())))
+				List.of(new YardSeedRequest.BlockOccupancy("B01", 86, null)), List.of())))
 				.isInstanceOf(BusinessException.class);
 	}
 
