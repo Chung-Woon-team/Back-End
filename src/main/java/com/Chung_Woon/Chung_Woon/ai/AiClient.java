@@ -3,6 +3,8 @@ package com.Chung_Woon.Chung_Woon.ai;
 import com.Chung_Woon.Chung_Woon.ai.dto.BillOfLadingExtractionResponse;
 import com.Chung_Woon.Chung_Woon.ai.dto.ParseInstructionRequest;
 import com.Chung_Woon.Chung_Woon.ai.dto.ParseInstructionResponse;
+import com.Chung_Woon.Chung_Woon.ai.dto.ReplanRequest;
+import com.Chung_Woon.Chung_Woon.ai.dto.ReplanResponse;
 import com.Chung_Woon.Chung_Woon.global.error.BusinessException;
 import com.Chung_Woon.Chung_Woon.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -78,6 +80,26 @@ public class AiClient {
 		} catch (RestClientException e) {
 			log.warn("AI 서비스 호출 실패 (/internal/extract/bl): {}", e.getMessage());
 			throw new BusinessException(ErrorCode.AI_UNAVAILABLE, "선하증권 추출 서비스를 호출하지 못했습니다.");
+		}
+	}
+
+	/**
+	 * 승인된 제약 + 야드 현황 + 차량 목록 → 재배치 결과. 결정론적 코드다(파이썬 쪽도 AI 를 안 씀) —
+	 * 다만 호출 경로는 다른 것들과 같다.
+	 *
+	 * @throws BusinessException {@link ErrorCode#AI_UNAVAILABLE} 파이썬 호출 자체가 실패했을 때.
+	 */
+	public ReplanResponse replan(ReplanRequest request) {
+		try {
+			return aiRestClient.post()
+					.uri("/internal/replan")
+					.contentType(MediaType.APPLICATION_JSON)
+					.body(request)
+					.retrieve()
+					.body(ReplanResponse.class);
+		} catch (RestClientException e) {
+			log.warn("AI 서비스 호출 실패 (/internal/replan): {}", e.getMessage());
+			throw new BusinessException(ErrorCode.AI_UNAVAILABLE, "재배치 서비스를 호출하지 못했습니다.");
 		}
 	}
 }
