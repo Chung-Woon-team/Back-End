@@ -19,7 +19,11 @@ public enum ErrorCode {
 
 	// 인증/인가
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "A001", "로그인이 필요합니다."),
-	FORBIDDEN(HttpStatus.FORBIDDEN, "A002", "권한이 없습니다.");
+	FORBIDDEN(HttpStatus.FORBIDDEN, "A002", "권한이 없습니다."),
+
+	// AI 서비스 연동 (API_CONTRACT.md 2-B "파이썬이 죽어 있을 때")
+	AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI001", "AI 서비스를 사용할 수 없습니다."),
+	AI_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "AI002", "AI 서비스 응답이 올바르지 않습니다.");
 
 	private final HttpStatus status;
 	private final String code;

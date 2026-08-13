@@ -26,6 +26,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// RestClient 의 멀티파트 처리 경로가 org.reactivestreams.Publisher 를 참조한다(WebFlux 는 안 씀).
+	// 없으면 AiClient 에서 NoClassDefFoundError.
+	implementation 'org.reactivestreams:reactive-streams'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'com.h2database:h2'
