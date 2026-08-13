@@ -2,6 +2,8 @@ package com.Chung_Woon.Chung_Woon.domain.instruction;
 
 import com.Chung_Woon.Chung_Woon.global.error.BusinessException;
 import com.Chung_Woon.Chung_Woon.global.error.ErrorCode;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,11 @@ public class ConstraintReviewService {
 				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "제약을 찾을 수 없습니다: " + constraintId));
 	}
 
+	/**
+	 * 공개 API 응답이라 snake_case 로 나가야 한다(API_CONTRACT.md 규칙 1, FRONTEND_CONTRACT.md 규칙 2).
+	 * 전역 Jackson 설정이 LOWER_CAMEL_CASE 라 이 애노테이션이 없으면 프론트가 읽는 필드가 전부 undefined 다.
+	 */
+	@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 	public record ConstraintSummary(
 			String constraintId,
 			String instructionId,

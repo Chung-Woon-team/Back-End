@@ -14,6 +14,9 @@ import lombok.NoArgsConstructor;
 /**
  * 야드의 블록. 슬롯을 담는 단위이며, 도색작업 등으로 통째로 폐쇄될 수 있다.
  * PK 는 현장 ID 규칙 그대로 "B03".
+ *
+ * <p>도면상 위치(원점 좌표와 크기)는 {@link BlockLayout} 이 정본이고, 이 엔티티는 그 값을 복사해서
+ * 들고 있는다. 조회 한 번으로 격자를 그릴 수 있게 하려는 것이다.
  */
 @Entity
 @Table(name = "block")
@@ -34,9 +37,23 @@ public class Block extends BaseTimeEntity {
 	@Column(length = 30)
 	private String zoneCode;
 
+	/** 블록 왼쪽 위 칸의 야드 절대 행. 도면 기준 4 또는 30. */
+	@Column(name = "origin_row", nullable = false)
+	private int originRow;
+
+	/** 블록 왼쪽 위 칸의 야드 절대 열. 도면 기준 4 또는 30. */
+	@Column(name = "origin_col", nullable = false)
+	private int originCol;
+
+	/** 한 변의 칸 수. 도면 기준 22. */
+	@Column(nullable = false)
+	private int gridSize;
+
+	/** 세로 열 개수. 도면 기준 22. */
 	@Column(nullable = false)
 	private int laneCount;
 
+	/** 한 레인이 한쪽 도로에서 갖는 깊이. 도면 기준 11 (depth 0~10). */
 	@Column(nullable = false)
 	private int depthPerLane;
 
@@ -52,6 +69,20 @@ public class Block extends BaseTimeEntity {
 
 	/** 폐쇄 사유 (예: "도색작업"). 승인된 지시의 원문에서 옮겨 적는다. */
 	private String closureReason;
+
+	/** 도면 정의에서 블록 한 개를 만든다. 슬롯은 {@code Slot.at(...)} 이 따로 붙인다. */
+	public static Block from(BlockLayout layout) {
+		return Block.builder()
+				.blockId(layout.blockId())
+				.zoneCode(layout.zoneCode())
+				.originRow(layout.originRow())
+				.originCol(layout.originCol())
+				.gridSize(YardGrid.BLOCK_SIZE)
+				.laneCount(YardGrid.LANES_PER_BLOCK)
+				.depthPerLane(YardGrid.DEPTH_PER_LANE)
+				.closed(false)
+				.build();
+	}
 
 	public void close(String reason) {
 		this.closed = true;

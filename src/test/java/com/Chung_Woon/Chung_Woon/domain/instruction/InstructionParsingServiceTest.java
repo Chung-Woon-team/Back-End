@@ -11,10 +11,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,6 +27,9 @@ import static org.mockito.Mockito.when;
 /**
  * DB/AI 없이 순수 로직만: constraint_id 채번, target/value snake_case JSON 직렬화,
  * unresolved/requires_confirmation 반영. 리포지토리·AiClient 는 전부 Mockito 로 대체한다.
+ *
+ * <p>{@code transactionTemplate.execute(...)} 는 실제 트랜잭션 없이 콜백만 바로 실행하도록
+ * 스텁한다 — 여기서 보는 건 트랜잭션 동작이 아니라 그 안의 순수 로직이다.
  */
 class InstructionParsingServiceTest {
 
@@ -34,10 +38,12 @@ class InstructionParsingServiceTest {
 	private final PlanConstraintRepository planConstraintRepository = mock(PlanConstraintRepository.class);
 	private final BlockRepository blockRepository = mock(BlockRepository.class);
 	private final VehicleRepository vehicleRepository = mock(VehicleRepository.class);
+	private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
 
 	private InstructionParsingService service;
 
 	@BeforeEach
+	@SuppressWarnings("unchecked")
 	void setUp() {
 		ObjectMapper aiObjectMapper = new ObjectMapper()
 				.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
@@ -45,19 +51,32 @@ class InstructionParsingServiceTest {
 				.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
 		service = new InstructionParsingService(
 				aiClient, instructionRepository, planConstraintRepository,
-				blockRepository, vehicleRepository, aiObjectMapper);
+				blockRepository, vehicleRepository, transactionTemplate, aiObjectMapper);
 
 		when(blockRepository.findAll()).thenReturn(List.of());
 		when(vehicleRepository.findAll()).thenReturn(List.of());
+		when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+			TransactionCallback<Object> callback = invocation.getArgument(0);
+			return callback.doInTransaction(null);
+		});
 	}
 
 	@Test
-	void createInstructionIssuesSequentialIdBasedOnExistingCount() {
-		when(instructionRepository.count()).thenReturn(41L);
+	void createInstructionIssuesSequentialIdBasedOnMaxExistingId() {
+		when(instructionRepository.findMaxInstructionId()).thenReturn(Optional.of("INS-041"));
 
 		var summary = service.createInstruction("3번 블록 폐쇄해", "야드관리자A");
 
 		assertThat(summary.instructionId()).isEqualTo("INS-042");
+	}
+
+	@Test
+	void createInstructionStartsAtOneWhenNoneExist() {
+		when(instructionRepository.findMaxInstructionId()).thenReturn(Optional.empty());
+
+		var summary = service.createInstruction("3번 블록 폐쇄해", "야드관리자A");
+
+		assertThat(summary.instructionId()).isEqualTo("INS-001");
 	}
 
 	@Test
@@ -67,7 +86,7 @@ class InstructionParsingServiceTest {
 				.rawText("3번 블록 폐쇄해")
 				.build();
 		when(instructionRepository.findById("INS-001")).thenReturn(Optional.of(instruction));
-		when(planConstraintRepository.count()).thenReturn(5L);
+		when(planConstraintRepository.findMaxConstraintId()).thenReturn(Optional.of("C-005"));
 
 		var target = new ParseInstructionResponse.Target(List.of("B03"), null, null, null, null);
 		var constraint = new ParseInstructionResponse.ParsedConstraint(

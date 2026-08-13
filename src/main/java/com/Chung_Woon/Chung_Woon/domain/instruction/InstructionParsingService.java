@@ -12,10 +12,13 @@ import com.Chung_Woon.Chung_Woon.global.error.BusinessException;
 import com.Chung_Woon.Chung_Woon.global.error.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,6 +46,7 @@ public class InstructionParsingService {
 	private final PlanConstraintRepository planConstraintRepository;
 	private final BlockRepository blockRepository;
 	private final VehicleRepository vehicleRepository;
+	private final TransactionTemplate transactionTemplate;
 
 	@Qualifier(AiClientConfig.AI_OBJECT_MAPPER)
 	private final ObjectMapper aiObjectMapper;
@@ -58,7 +62,13 @@ public class InstructionParsingService {
 		return new InstructionSummary(instruction.getInstructionId());
 	}
 
-	@Transactional
+	/**
+	 * AI 호출은 트랜잭션 <b>밖</b>이다. 파싱은 최대 30초까지 걸리는데(AiClientConfig 의 read
+	 * timeout 은 60초), 트랜잭션 안에서 부르면 그동안 DB 커넥션을 잡고 있는다. prod 풀 크기가
+	 * 작을 땐 지시 몇 건만 동시에 들어와도 앱 전체가 커넥션을 못 얻는다 — "파이썬이 죽어 있어도
+	 * 조회 API 는 살아 있어야 한다"(API_CONTRACT.md)를 정면으로 깬다. 그래서 저장만 트랜잭션으로
+	 * 감싼다(BillOfLadingExpansionService 와 같은 패턴).
+	 */
 	public ParseOutcome parseAndSaveConstraints(String instructionId) {
 		Instruction instruction = instructionRepository.findById(instructionId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "지시를 찾을 수 없습니다: " + instructionId));
@@ -78,11 +88,18 @@ public class InstructionParsingService {
 			throw new BusinessException(ErrorCode.AI_RESPONSE_INVALID, "파싱 결과가 비어있습니다.");
 		}
 
+		return transactionTemplate.execute(status -> persist(instructionId, response.threadId(), result));
+	}
+
+	private ParseOutcome persist(String instructionId, String threadId, ParseInstructionResponse.Result result) {
+		Instruction instruction = instructionRepository.findById(instructionId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "지시를 찾을 수 없습니다: " + instructionId));
+
 		List<String> constraintIds = attachConstraints(instruction, result.constraints());
 		List<String> unresolved = result.unresolved() != null ? result.unresolved() : List.of();
 		boolean requiresConfirmation = Boolean.TRUE.equals(result.requiresConfirmation());
 
-		instruction.applyParseResult(response.threadId(), writeJson(unresolved), requiresConfirmation);
+		instruction.applyParseResult(threadId, writeJson(unresolved), requiresConfirmation);
 
 		return new ParseOutcome(instructionId, constraintIds, unresolved, requiresConfirmation);
 	}
@@ -91,8 +108,8 @@ public class InstructionParsingService {
 		if (parsed == null || parsed.isEmpty()) {
 			return List.of();
 		}
-		// 전역 유일해야 하는 3자리 ID(C-001..C-999) 라 기존 대수 다음부터 이어 붙인다.
-		long startingOffset = planConstraintRepository.count();
+		// 전역 유일해야 하는 3자리 ID(C-001..C-999) 라 **지금까지 발급된 최대 번호** 다음부터 이어 붙인다.
+		long startingOffset = nextConstraintNumber() - 1;
 		List<String> constraintIds = new ArrayList<>(parsed.size());
 		for (int i = 0; i < parsed.size(); i++) {
 			ParseInstructionResponse.ParsedConstraint c = parsed.get(i);
@@ -136,8 +153,22 @@ public class InstructionParsingService {
 				.toList();
 	}
 
+	/**
+	 * {@code count()} 를 쓰면 안 된다 — 행이 한 번이라도 삭제되면 이미 쓰인 번호를 다시 내주고,
+	 * PK 가 수동 할당이라 저장이 merge(UPSERT)로 동작해서 기존 행을 예외 없이 덮어쓴다
+	 * (BillOfLadingExpansionService 에서 실측된 결함과 같은 패턴).
+	 */
 	private String nextInstructionId() {
-		return "INS-%03d".formatted(instructionRepository.count() + 1);
+		long n = instructionRepository.findMaxInstructionId()
+				.map(id -> Long.parseLong(id.substring(id.indexOf('-') + 1)) + 1)
+				.orElse(1L);
+		return "INS-%03d".formatted(n);
+	}
+
+	private long nextConstraintNumber() {
+		return planConstraintRepository.findMaxConstraintId()
+				.map(id -> Long.parseLong(id.substring(id.indexOf('-') + 1)) + 1)
+				.orElse(1L);
 	}
 
 	/** target/value 는 AI 가 준 snake_case 모양 그대로 저장한다(docs/DOMAIN.md 예시와 맞추기 위함). */
@@ -155,9 +186,15 @@ public class InstructionParsingService {
 		}
 	}
 
+	/**
+	 * 공개 API 응답이라 snake_case 로 나가야 한다(API_CONTRACT.md 규칙 1, FRONTEND_CONTRACT.md 규칙 2).
+	 * 전역 Jackson 설정이 LOWER_CAMEL_CASE 라 이 애노테이션이 없으면 프론트가 읽는 필드가 전부 undefined 다.
+	 */
+	@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 	public record InstructionSummary(String instructionId) {
 	}
 
+	@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 	public record ParseOutcome(
 			String instructionId,
 			List<String> constraintIds,
