@@ -32,7 +32,8 @@ class YardOccupancyServiceTest {
 	void emptyYard() {
 		YardOccupancyResponse snapshot = yardOccupancyService.snapshot();
 
-		assertThat(snapshot.grid().size()).isEqualTo(YardGrid.SIZE);
+		assertThat(snapshot.grid().rows()).isEqualTo(YardGrid.ROW_COUNT);
+		assertThat(snapshot.grid().cols()).isEqualTo(YardGrid.COL_COUNT);
 		assertThat(snapshot.grid().totalSlots()).isEqualTo(YardGrid.SLOT_COUNT);
 		assertThat(snapshot.blocks()).hasSize(YardGrid.BLOCK_COUNT);
 		assertThat(snapshot.occupied()).isEmpty();
@@ -48,13 +49,14 @@ class YardOccupancyServiceTest {
 		assertThat(b01.zoneId()).isEqualTo(1);
 		assertThat(b01.originRow()).isEqualTo(4);
 		assertThat(b01.originCol()).isEqualTo(4);
-		assertThat(b01.size()).isEqualTo(YardGrid.BLOCK_SIZE);
+		assertThat(b01.blockRows()).isEqualTo(YardGrid.BLOCK_ROWS);
+		assertThat(b01.blockCols()).isEqualTo(YardGrid.BLOCK_COLS);
 
 		// B02 는 우상단 — 알고리즘의 zone 2 와 같아야 한다.
 		YardOccupancyResponse.BlockState b02 = blocks.get(1);
 		assertThat(b02.zoneId()).isEqualTo(2);
 		assertThat(b02.originRow()).isEqualTo(4);
-		assertThat(b02.originCol()).isEqualTo(30);
+		assertThat(b02.originCol()).isEqualTo(25);
 	}
 
 	@Test

@@ -72,7 +72,7 @@ class DashboardControllerTest {
 	}
 
 	@Test
-	@DisplayName("블록 4개가 도면 용량(484)과 함께 나온다")
+	@DisplayName("블록 4개가 용량(85)과 함께 나온다")
 	void blocksCarryCapacity() throws Exception {
 		JsonNode blocks = fetchDashboard().get("blocks");
 

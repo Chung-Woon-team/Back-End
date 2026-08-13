@@ -45,7 +45,7 @@ public class YardLayoutInitializer implements ApplicationRunner {
 		slotRepository.saveAll(slots);
 
 		log.info("야드 격자 {}×{} 적재 완료 — 블록 {}개, 슬롯 {}개, 도로 {}칸",
-				YardGrid.SIZE, YardGrid.SIZE, BlockLayout.values().length, slots.size(),
+				YardGrid.ROW_COUNT, YardGrid.COL_COUNT, BlockLayout.values().length, slots.size(),
 				YardGrid.ROAD_CELL_COUNT);
 	}
 }

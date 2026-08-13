@@ -45,15 +45,19 @@ public class Block extends BaseTimeEntity {
 	@Column(name = "origin_col", nullable = false)
 	private int originCol;
 
-	/** 한 변의 칸 수. 도면 기준 22. */
+	/** 블록의 행 수(깊이). 사진 기준 5. */
 	@Column(nullable = false)
-	private int gridSize;
+	private int blockRows;
 
-	/** 세로 열 개수. 도면 기준 22. */
+	/** 블록의 열 수(폭). 사진 기준 17. */
+	@Column(nullable = false)
+	private int blockCols;
+
+	/** 세로 열 개수 = blockCols. 사진 기준 17. */
 	@Column(nullable = false)
 	private int laneCount;
 
-	/** 한 레인이 한쪽 도로에서 갖는 깊이. 도면 기준 11 (depth 0~10). */
+	/** 한 레인이 한쪽 도로에서 갖는 깊이. 사진 기준 3 (depth 0~2). */
 	@Column(nullable = false)
 	private int depthPerLane;
 
@@ -77,7 +81,8 @@ public class Block extends BaseTimeEntity {
 				.zoneCode(layout.zoneCode())
 				.originRow(layout.originRow())
 				.originCol(layout.originCol())
-				.gridSize(YardGrid.BLOCK_SIZE)
+				.blockRows(YardGrid.BLOCK_ROWS)
+				.blockCols(YardGrid.BLOCK_COLS)
 				.laneCount(YardGrid.LANES_PER_BLOCK)
 				.depthPerLane(YardGrid.DEPTH_PER_LANE)
 				.closed(false)

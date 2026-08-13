@@ -22,9 +22,15 @@ public record YardOccupancyResponse(
 ) {
 
 	public record Grid(
-			@JsonProperty("size") int size,
+			/** 야드 전체 행 수. 22. */
+			@JsonProperty("rows") int rows,
+			/** 야드 전체 열 수. 46. 정사각형이 아니다. */
+			@JsonProperty("cols") int cols,
 			@JsonProperty("road_width") int roadWidth,
-			@JsonProperty("block_size") int blockSize,
+			/** 블록 하나의 행 수(깊이). 5. */
+			@JsonProperty("block_rows") int blockRows,
+			/** 블록 하나의 열 수(폭). 17. */
+			@JsonProperty("block_cols") int blockCols,
 			@JsonProperty("total_slots") int totalSlots
 	) {
 	}
@@ -35,7 +41,8 @@ public record YardOccupancyResponse(
 			@JsonProperty("zone_id") int zoneId,
 			@JsonProperty("origin_row") int originRow,
 			@JsonProperty("origin_col") int originCol,
-			@JsonProperty("size") int size,
+			@JsonProperty("block_rows") int blockRows,
+			@JsonProperty("block_cols") int blockCols,
 			/** 닫힌 블록에는 <b>새로 배치하지 않는다.</b> 다만 길로 지나가는 건 된다. */
 			@JsonProperty("closed") boolean closed,
 			@JsonProperty("closure_reason") String closureReason
