@@ -27,6 +27,8 @@ public interface VehicleRepository extends JpaRepository<Vehicle, String> {
 
 	List<Vehicle> findByStatus(VehicleStatus status);
 
+	long countByStatus(VehicleStatus status);
+
 	List<Vehicle> findByBillOfLading_BlNumber(String blNumber);
 
 	/** 하선 작업 순서대로. */

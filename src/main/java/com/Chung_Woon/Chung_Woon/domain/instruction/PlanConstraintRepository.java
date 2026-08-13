@@ -10,6 +10,10 @@ public interface PlanConstraintRepository extends JpaRepository<PlanConstraint, 
 
 	List<PlanConstraint> findByStatus(ConstraintStatus status);
 
+	long countByStatus(ConstraintStatus status);
+
+	List<PlanConstraint> findTop10ByOrderByCreatedAtDesc();
+
 	List<PlanConstraint> findByInstruction_InstructionId(String instructionId);
 
 	/** 최적화 엔진에 넘길 제약 — 승인된 것만. */

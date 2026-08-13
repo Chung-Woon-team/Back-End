@@ -71,6 +71,29 @@ public class AiClientConfig {
 		return trimmed;
 	}
 
+	/**
+	 * 헬스체크 전용 클라이언트. 타임아웃이 짧다 — 대시보드가 AI 콜드스타트(실측 7.5초)에
+	 * 매달리면 화면 전체가 늦어진다. 못 받으면 "응답 없음" 으로 그리는 게 낫다.
+	 */
+	@Bean
+	public RestClient aiHealthRestClient(
+			@Value("${ai.base-url}") String aiBaseUrl,
+			@Qualifier(AI_OBJECT_MAPPER) ObjectMapper aiObjectMapper) {
+		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+		requestFactory.setConnectTimeout((int) Duration.ofSeconds(2).toMillis());
+		requestFactory.setReadTimeout((int) Duration.ofSeconds(3).toMillis());
+
+		return RestClient.builder()
+				.baseUrl(normalizeBaseUrl(aiBaseUrl))
+				.requestFactory(requestFactory)
+				.messageConverters(converters -> {
+					converters.removeIf(c -> c instanceof MappingJackson2HttpMessageConverter
+							|| c instanceof JacksonJsonHttpMessageConverter);
+					converters.add(0, new MappingJackson2HttpMessageConverter(aiObjectMapper));
+				})
+				.build();
+	}
+
 	@Bean
 	public RestClient aiRestClient(
 			@Value("${ai.base-url}") String aiBaseUrl,
