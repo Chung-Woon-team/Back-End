@@ -1,10 +1,12 @@
 package com.Chung_Woon.Chung_Woon.ai;
 
 import com.Chung_Woon.Chung_Woon.ai.dto.BillOfLadingExtractionResponse;
+import com.Chung_Woon.Chung_Woon.ai.dto.GridObservationResponse;
 import com.Chung_Woon.Chung_Woon.ai.dto.ParseInstructionRequest;
 import com.Chung_Woon.Chung_Woon.ai.dto.ParseInstructionResponse;
 import com.Chung_Woon.Chung_Woon.ai.dto.ReplanRequest;
 import com.Chung_Woon.Chung_Woon.ai.dto.ReplanResponse;
+import com.Chung_Woon.Chung_Woon.domain.observation.ObservationSource;
 import com.Chung_Woon.Chung_Woon.global.error.BusinessException;
 import com.Chung_Woon.Chung_Woon.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -120,6 +122,39 @@ public class AiClient {
 		} catch (RestClientException e) {
 			log.warn("AI 서비스 호출 실패 (/internal/extract/bl): {}", e.getMessage());
 			throw new BusinessException(ErrorCode.AI_UNAVAILABLE, "선하증권 추출 서비스를 호출하지 못했습니다.");
+		}
+	}
+
+	/**
+	 * 야드 전체 사진 한 장 → 340칸 점유 상태. 좌표(row, col)까지만 온다 — 어느 차인지는 모른다,
+	 * 대조·확정은 호출부(스프링) 몫이다.
+	 *
+	 * @throws BusinessException {@link ErrorCode#AI_UNAVAILABLE} 파이썬 호출 자체가 실패했을 때.
+	 */
+	public GridObservationResponse extractGridObservation(MultipartFile file, ObservationSource sourceType) {
+		MultipartBodyBuilder builder = new MultipartBodyBuilder();
+		try {
+			builder.part("file", file.getBytes())
+					.filename(file.getOriginalFilename() != null ? file.getOriginalFilename() : "yard.jpg")
+					.contentType(file.getContentType() != null
+							? MediaType.parseMediaType(file.getContentType())
+							: MediaType.APPLICATION_OCTET_STREAM);
+		} catch (IOException e) {
+			throw new UncheckedIOException("업로드된 파일을 읽지 못했습니다", e);
+		}
+
+		try {
+			return aiRestClient.post()
+					.uri(uriBuilder -> uriBuilder.path("/internal/extract/grid")
+							.queryParam("source_type", sourceType.name())
+							.build())
+					.contentType(MediaType.MULTIPART_FORM_DATA)
+					.body(builder.build())
+					.retrieve()
+					.body(GridObservationResponse.class);
+		} catch (RestClientException e) {
+			log.warn("AI 서비스 호출 실패 (/internal/extract/grid): {}", e.getMessage());
+			throw new BusinessException(ErrorCode.AI_UNAVAILABLE, "야드 격자 인식 서비스를 호출하지 못했습니다.");
 		}
 	}
 
