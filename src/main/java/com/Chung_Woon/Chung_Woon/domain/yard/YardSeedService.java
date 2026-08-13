@@ -1,6 +1,7 @@
 package com.Chung_Woon.Chung_Woon.domain.yard;
 
 import com.Chung_Woon.Chung_Woon.api.dto.YardSeedRequest;
+import com.Chung_Woon.Chung_Woon.domain.vehicle.NextMode;
 import com.Chung_Woon.Chung_Woon.domain.vehicle.Vehicle;
 import com.Chung_Woon.Chung_Woon.domain.vehicle.VehicleRepository;
 import com.Chung_Woon.Chung_Woon.domain.vehicle.VehicleStatus;
@@ -74,6 +75,8 @@ public class YardSeedService {
 	@Transactional
 	public int clear() {
 		int removed = (int) vehicleRepository.count();
+		// 슬롯 참조를 먼저 끊어야 FK 제약에 걸리지 않는다.
+		vehicleRepository.findAll().forEach(Vehicle::leaveSlot);
 		vehicleRepository.deleteAll();
 
 		slotRepository.findByStatus(SlotStatus.OCCUPIED).forEach(Slot::markEmpty);
@@ -115,19 +118,39 @@ public class YardSeedService {
 			List<Vehicle> vehicles = new ArrayList<>(targets.size());
 			for (Slot slot : targets) {
 				long number = nextNumber++;
-				vehicles.add(Vehicle.builder()
+				Vehicle vehicle = Vehicle.builder()
 						.vehicleId("V-%04d".formatted(number))
 						.vin("%s%013d".formatted(DEMO_VIN_PREFIX, number))
 						.brand(brands.get((int) (number % brands.size())))
-						.status(VehicleStatus.IN_YARD)
 						.arrivedAt(LocalDateTime.now().minusHours(number % 24))
-						.build());
+						.build();
+
+				// 배치 알고리즘이 "이 차가 언제 어느 출구로 나가는지" 를 알아야 기존 차의
+				// 출차 경로를 그릴 수 있다. 실데이터가 없으므로 여기서 만들어 준다.
+				vehicle.assignOutboundPlan(
+						number % 2 == 0 ? NextMode.TRUCK : NextMode.RAIL,
+						LocalDateTime.now().plusMinutes(cutoffMinutes(number, request)));
+				vehicle.parkAt(slot);
 				slot.markOccupied();
+				vehicles.add(vehicle);
 			}
 			vehicleRepository.saveAll(vehicles);
 			created += vehicles.size();
 		}
 		return created;
+	}
+
+	/**
+	 * 출차 컷오프까지 남은 분. 차마다 흩어져야 알고리즘이 순서를 정할 거리가 생긴다.
+	 * 범위를 안 주면 30분 ~ 10시간 사이에 고르게 편다.
+	 */
+	private long cutoffMinutes(long number, YardSeedRequest request) {
+		long from = request.cutoffMinutesFromOrDefault();
+		long to = request.cutoffMinutesToOrDefault();
+		if (to <= from) {
+			return from;
+		}
+		return from + (number * 7 % (to - from));
 	}
 
 	private Block block(String blockId) {

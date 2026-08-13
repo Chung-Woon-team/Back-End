@@ -36,7 +36,7 @@ class YardSeedServiceTest {
 
 	private YardSeedRequest request(List<YardSeedRequest.BlockOccupancy> blocks,
 			List<YardSeedRequest.ClosedBlock> closed) {
-		return new YardSeedRequest(blocks, closed, true);
+		return new YardSeedRequest(blocks, closed, true, null, null);
 	}
 
 	@Test
