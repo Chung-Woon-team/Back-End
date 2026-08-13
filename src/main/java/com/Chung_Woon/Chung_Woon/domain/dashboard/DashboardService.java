@@ -15,9 +15,11 @@ import com.Chung_Woon.Chung_Woon.domain.plan.PlanStatus;
 import com.Chung_Woon.Chung_Woon.domain.vehicle.VehicleRepository;
 import com.Chung_Woon.Chung_Woon.domain.vehicle.VehicleStatus;
 import com.Chung_Woon.Chung_Woon.domain.yard.Block;
+import com.Chung_Woon.Chung_Woon.domain.yard.BlockLayout;
 import com.Chung_Woon.Chung_Woon.domain.yard.BlockRepository;
 import com.Chung_Woon.Chung_Woon.domain.yard.SlotRepository;
 import com.Chung_Woon.Chung_Woon.domain.yard.SlotStatus;
+import com.Chung_Woon.Chung_Woon.domain.yard.YardGrid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,8 +90,10 @@ public class DashboardService {
 	private DashboardResponse.Summary buildSummary(PlanRevision latestPlan) {
 		long inYard = vehicleRepository.countByStatus(VehicleStatus.IN_YARD);
 		long occupied = slotRepository.countByStatus(SlotStatus.OCCUPIED);
-		long available = slotRepository.countAssignable();
-		long total = slotRepository.count();
+		// 총 칸 수는 코드 상수다. DB 에 격자가 아직 안 깔렸다고 "0 칸" 이라고 말하면
+		// 화면에 "0 / 0" 이 떠서 야드가 없는 것처럼 보인다.
+		long total = YardGrid.SLOT_COUNT;
+		long available = slotRepository.count() == 0 ? total : slotRepository.countAssignable();
 
 		double occupancyPct = total == 0 ? 0.0 : round1(occupied * 100.0 / total);
 		String congestion = congestionOf(total == 0 ? 0.0 : (double) occupied / total);
@@ -163,23 +167,33 @@ public class DashboardService {
 		return counts;
 	}
 
+	/**
+	 * 블록 카드 4개. <b>구조는 코드 정의(BlockLayout)가 정본이고</b> 폐쇄 여부만 DB 에서 온다.
+	 *
+	 * <p>DB 만 읽으면 격자가 적재되기 전에 카드가 하나도 안 그려진다("연동된 블록 데이터가 없습니다").
+	 * 블록이 넷이라는 건 항상 아는 값이라 DB 를 기다릴 이유가 없다.
+	 */
 	private List<DashboardResponse.BlockStatus> buildBlocks(
 			List<Block> blocks, Map<String, Long> occupiedByBlock, PlanRevision latestPlan) {
 
 		Map<String, Long> movesByBlock = pendingMoveCountByBlock(latestPlan);
+		Map<String, Block> storedById = new HashMap<>();
+		blocks.forEach(b -> storedById.put(b.getBlockId(), b));
 
-		List<DashboardResponse.BlockStatus> result = new ArrayList<>(blocks.size());
-		for (Block block : blocks.stream().sorted(Comparator.comparing(Block::getBlockId)).toList()) {
-			long occupied = occupiedByBlock.getOrDefault(block.getBlockId(), 0L);
-			long capacity = (long) block.getBlockRows() * block.getBlockCols();
-			long movingIn = movesByBlock.getOrDefault(block.getBlockId(), 0L);
+		List<DashboardResponse.BlockStatus> result = new ArrayList<>(YardGrid.BLOCK_COUNT);
+		for (BlockLayout layout : BlockLayout.values()) {
+			Block stored = storedById.get(layout.blockId());
+			long occupied = occupiedByBlock.getOrDefault(layout.blockId(), 0L);
+			long capacity = YardGrid.SLOTS_PER_BLOCK;
+			long movingIn = movesByBlock.getOrDefault(layout.blockId(), 0L);
+			boolean closed = stored != null && stored.isClosed();
 
 			String status;
 			String note;
-			if (block.isClosed()) {
+			if (closed) {
 				status = "CLOSED";
-				note = block.getClosureReason() != null
-						? block.getClosureReason() + "으로 폐쇄"
+				note = stored.getClosureReason() != null
+						? stored.getClosureReason() + "으로 폐쇄"
 						: "폐쇄됨";
 			} else if (movingIn > 0) {
 				status = "RELOCATING";
@@ -190,8 +204,9 @@ public class DashboardService {
 			}
 
 			result.add(new DashboardResponse.BlockStatus(
-					block.getBlockId(), block.getZoneCode(), status, blockStatusLabel(status),
-					occupied, capacity, note));
+					layout.blockId(),
+					stored != null ? stored.getZoneCode() : layout.zoneCode(),
+					status, blockStatusLabel(status), occupied, capacity, note));
 		}
 		return result;
 	}
