@@ -1,6 +1,7 @@
 package com.Chung_Woon.Chung_Woon.domain.vehicle;
 
 import com.Chung_Woon.Chung_Woon.domain.billoflading.BillOfLading;
+import com.Chung_Woon.Chung_Woon.domain.yard.Slot;
 import com.Chung_Woon.Chung_Woon.global.common.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,6 +9,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -113,6 +115,17 @@ public class Vehicle extends BaseTimeEntity {
 
 	// --- 후속 운송 계획 (선하증권에 없음) ---
 
+	/**
+	 * 지금 서 있는 자리. 야드에 없으면 null 이다.
+	 *
+	 * <p>{@code Placement} 와 다르다 — 저건 "이 <b>판</b>에서 이 차는 이 슬롯" 이라 계획에 딸려 있고,
+	 * 이건 "지금 실제로 어디 있나" 다. 배치 알고리즘이 이미 주차된 차를 피해 가려면 이 값이 필요하다.
+	 * 한 칸에 두 대가 설 수 없으므로 유니크다.
+	 */
+	@OneToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "current_slot_id", unique = true)
+	private Slot currentSlot;
+
 	@Enumerated(EnumType.STRING)
 	@Column(length = 20)
 	private NextMode nextMode;
@@ -138,6 +151,17 @@ public class Vehicle extends BaseTimeEntity {
 	public void departAt(LocalDateTime when) {
 		this.status = VehicleStatus.DEPARTED;
 		this.departedAt = when;
+	}
+
+	/** 자리에 세운다. 슬롯 점유 표시는 호출부가 같이 해야 한다. */
+	public void parkAt(Slot slot) {
+		this.currentSlot = slot;
+		this.status = VehicleStatus.IN_YARD;
+	}
+
+	/** 자리를 뜬다. */
+	public void leaveSlot() {
+		this.currentSlot = null;
 	}
 
 	public void assignOutboundPlan(NextMode nextMode, LocalDateTime departureCutoffAt) {

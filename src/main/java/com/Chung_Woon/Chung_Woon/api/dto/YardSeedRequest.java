@@ -22,8 +22,22 @@ public record YardSeedRequest(
 		 * true 면 기존 차량과 점유를 <b>전부 지우고</b> 새로 넣는다.
 		 * false 면 기존 위에 덧붙인다(같은 칸은 건드리지 않음).
 		 */
-		@JsonProperty("reset") Boolean reset
+		@JsonProperty("reset") Boolean reset,
+
+		/** 출차 컷오프까지 남은 시간(분) 하한. 기본 30. */
+		@JsonProperty("cutoff_minutes_from") Long cutoffMinutesFrom,
+
+		/** 출차 컷오프까지 남은 시간(분) 상한. 기본 600(10시간). */
+		@JsonProperty("cutoff_minutes_to") Long cutoffMinutesTo
 ) {
+
+	public long cutoffMinutesFromOrDefault() {
+		return cutoffMinutesFrom == null ? 30L : cutoffMinutesFrom;
+	}
+
+	public long cutoffMinutesToOrDefault() {
+		return cutoffMinutesTo == null ? 600L : cutoffMinutesTo;
+	}
 
 	public List<BlockOccupancy> blocksOrEmpty() {
 		return blocks == null ? List.of() : blocks;
