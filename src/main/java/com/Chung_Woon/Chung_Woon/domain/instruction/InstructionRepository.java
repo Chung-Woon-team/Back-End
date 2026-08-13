@@ -10,6 +10,9 @@ public interface InstructionRepository extends JpaRepository<Instruction, String
 
 	List<Instruction> findByRequiresConfirmationTrue();
 
+	/** 대시보드 "최근 지시" 목록. */
+	List<Instruction> findTop10ByOrderByCreatedAtDesc();
+
 	/**
 	 * 지금까지 발급된 가장 큰 지시 ID. 없으면 비어 있다.
 	 *

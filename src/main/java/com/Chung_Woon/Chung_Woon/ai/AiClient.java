@@ -30,6 +30,46 @@ public class AiClient {
 
 	private final RestClient aiRestClient;
 
+	/** 헬스체크 전용. 대시보드가 AI 콜드스타트에 8초씩 매달리지 않게 타임아웃이 짧다. */
+	private final RestClient aiHealthRestClient;
+
+	/**
+	 * {@code GET /health} 응답. 대시보드가 "AI 엔진 상태" 를 그릴 때 쓴다.
+	 *
+	 * @param up            응답이 왔는지
+	 * @param geminiEnabled 키가 실제로 들어가 있는지. false 면 서버는 200 을 주지만 고정 더미를 돌려준다
+	 */
+	public record HealthSnapshot(boolean up, Boolean geminiEnabled) {
+
+		static HealthSnapshot down() {
+			return new HealthSnapshot(false, null);
+		}
+	}
+
+	/**
+	 * AI 서비스가 살아있는지. <b>절대 예외를 던지지 않는다</b> — 파이썬이 죽어도 대시보드는 떠야 한다
+	 * (docs/API_CONTRACT.md "파이썬이 죽어 있을 때").
+	 */
+	public HealthSnapshot health() {
+		try {
+			AiHealthResponse body = aiHealthRestClient.get()
+					.uri("/health")
+					.retrieve()
+					.body(AiHealthResponse.class);
+			if (body == null) {
+				return HealthSnapshot.down();
+			}
+			return new HealthSnapshot(true, body.geminiEnabled());
+		} catch (RestClientException e) {
+			log.debug("AI 헬스체크 실패: {}", e.getMessage());
+			return HealthSnapshot.down();
+		}
+	}
+
+	/** {@code /health} 의 응답 모양. 필요한 두 필드만 받는다. */
+	private record AiHealthResponse(String status, Boolean geminiEnabled) {
+	}
+
 	/**
 	 * 자연어 지시 → 제약 JSON. thread_id 는 지금은 자리만 잡아둔 값이다(그래프 미구현).
 	 *
