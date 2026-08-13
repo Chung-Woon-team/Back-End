@@ -7,7 +7,7 @@ spring:
   jackson:
     property-naming-strategy: LOWER_CAMEL_CASE
     default-property-inclusion: non_null
-    jpa:
+  jpa:
     open-in-view: false
     properties:
       hibernate:
